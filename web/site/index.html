@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LabShop</title>
+<style>
+  body { font-family: Tahoma, sans-serif; background: #f4f5f7; color: #222; margin: 0; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #666; margin: 0 0 20px; font-size: 14px; }
+  .box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .err { background: #fdecec; border-color: #e0a0a0; color: #8a1f1f; display: none; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: right; }
+  button { font: inherit; padding: 4px 12px; border: 1px solid #1f3b73; background: #1f3b73; color: #fff; border-radius: 4px; cursor: pointer; }
+  input { width: 50px; font: inherit; }
+  .num { direction: ltr; text-align: left; }
+</style>
+</head>
+<body>
+<main>
+  <h1>LabShop</h1>
+  <p class="sub">سفارش قهوه، جلسه‌ی ۷ آزمایشگاه نرم‌افزار</p>
+
+  <div class="box err" id="err"></div>
+
+  <div class="box">
+    <h2 style="font-size:17px;margin-top:0">منو</h2>
+    <table><thead><tr><th>نام</th><th>قیمت (تومان)</th><th>تعداد</th><th></th></tr></thead><tbody id="menu"></tbody></table>
+  </div>
+
+  <div class="box">
+    <h2 style="font-size:17px;margin-top:0">آخرین سفارش‌ها</h2>
+    <table><thead><tr><th>#</th><th>کالا</th><th>تعداد</th><th>مبلغ</th><th>زمان</th></tr></thead><tbody id="orders"></tbody></table>
+  </div>
+</main>
+<script>
+const fmt = n => n.toLocaleString('fa-IR');
+function showError(msg) { const e = document.getElementById('err'); e.textContent = msg; e.style.display = 'block'; }
+
+async function api(path, opts) {
+  const res = await fetch('/api/' + path, opts);
+  if (!res.ok) throw new Error('API در دسترس نیست: ' + path + ' → HTTP ' + res.status);
+  return res.json();
+}
+
+async function loadMenu() {
+  const items = await api('menu');
+  document.getElementById('menu').innerHTML = items.map(m =>
+    `<tr><td>${m.name}</td><td>${fmt(m.price)}</td><td><input type="number" min="1" value="1" id="q${m.id}"></td>` +
+    `<td><button onclick="order(${m.id})">سفارش</button></td></tr>`).join('');
+}
+
+async function loadOrders() {
+  const list = await api('orders');
+  document.getElementById('orders').innerHTML = list.length ? list.map(o =>
+    `<tr><td>${fmt(o.id)}</td><td>${o.item}</td><td>${fmt(o.qty)}</td><td>${fmt(o.total)}</td>` +
+    `<td>${new Date(o.created_at).toLocaleTimeString('fa-IR')}</td></tr>`).join('')
+    : '<tr><td colspan="5">هنوز سفارشی نیست.</td></tr>';
+}
+
+async function order(id) {
+  const qty = parseInt(document.getElementById('q' + id).value, 10) || 1;
+  try {
+    await api('orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: id, qty }) });
+    await loadOrders();
+  } catch (e) { showError(e.message); }
+}
+
+Promise.all([loadMenu(), loadOrders()]).catch(e => showError(e.message));
+</script>
+</body>
+</html>
